@@ -69,18 +69,158 @@
             border-color: #2ca8ff;
         }
 
+        .controls button,
+        .post-toolbar button,
+        .sidebar-toggle {
+            background: #1f1f1f;
+            border: 1px solid #3a3a3a;
+            color: #f2f2f2;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .controls button:hover,
+        .post-toolbar button:hover,
+        .sidebar-toggle:hover {
+            border-color: #2ca8ff;
+        }
+
+        .controls button:disabled,
+        .post-toolbar button:disabled,
+        .sidebar-toggle:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
         .main {
             flex: 1;
             display: flex;
             min-height: 0;
         }
 
+        .sidebar-pane {
+            width: 280px;
+            min-width: 240px;
+            border-right: 1px solid #222;
+            background: #0b0b0b;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+            transition: width 0.2s ease, min-width 0.2s ease, border-color 0.2s ease;
+        }
+
+        .sidebar-head {
+            padding: 12px;
+            border-bottom: 1px solid #1f1f1f;
+            background: #101010;
+        }
+
+        .sidebar-head h2 {
+            font-size: 12px;
+            letter-spacing: 0.04em;
+            color: #8f8f8f;
+            font-weight: 700;
+        }
+
+        .main.sidebar-collapsed .sidebar-pane {
+            width: 0;
+            min-width: 0;
+            border-right-color: transparent;
+        }
+
+        .main.sidebar-collapsed .sidebar-pane>* {
+            opacity: 0;
+            pointer-events: none;
+        }
+
         .editor-pane {
-            width: 40%;
+            width: 36%;
             min-width: 300px;
             display: flex;
             flex-direction: column;
             border-right: 1px solid #222;
+            min-height: 0;
+        }
+
+        .post-toolbar {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 12px 12px 8px;
+            border-bottom: 1px solid #1f1f1f;
+            background: #101010;
+        }
+
+        .post-toolbar input {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #ddd;
+            padding: 7px 9px;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .post-toolbar input:focus {
+            outline: none;
+            border-color: #2ca8ff;
+        }
+
+        .post-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .save-status {
+            min-height: 16px;
+            color: #64d98b;
+            font-size: 12px;
+        }
+
+        .post-list {
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .post-empty {
+            color: #666;
+            font-size: 12px;
+            padding: 8px 6px;
+        }
+
+        .post-item {
+            width: 100%;
+            text-align: left;
+            background: #151515;
+            border: 1px solid #262626;
+            color: #ddd;
+            border-radius: 8px;
+            padding: 9px 10px;
+            cursor: pointer;
+        }
+
+        .post-item.active {
+            border-color: #2ca8ff;
+            background: #122333;
+        }
+
+        .post-item-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #f2f2f2;
+            margin-bottom: 3px;
+        }
+
+        .post-item-meta {
+            font-size: 11px;
+            color: #8a8a8a;
         }
 
         .editor-pane textarea {
@@ -157,15 +297,32 @@
                 flex-direction: column;
             }
 
+            .sidebar-pane {
+                width: 100%;
+                min-width: 0;
+                max-height: 200px;
+                border-right: none;
+                border-bottom: 1px solid #222;
+                transition: max-height 0.2s ease, border-color 0.2s ease;
+            }
+
+            .main.sidebar-collapsed .sidebar-pane {
+                width: 100%;
+                min-width: 0;
+                max-height: 0;
+                border-bottom-color: transparent;
+            }
+
             .editor-pane {
                 width: 100%;
-                height: 40%;
+                min-width: 0;
+                height: 35%;
                 border-right: none;
                 border-bottom: 1px solid #222;
             }
 
             .preview-pane {
-                height: 60%;
+                height: 45%;
             }
         }
     </style>
@@ -174,6 +331,7 @@
 <body>
     <header>
         <h1>Insta Card Maker</h1>
+        <button id="toggleSidebar" class="sidebar-toggle" type="button" aria-expanded="true">목록 접기</button>
         <div class="controls">
             <label>프리셋
                 <select id="preset"></select>
@@ -193,7 +351,24 @@
     </header>
 
     <div class="main">
+        <aside class="sidebar-pane">
+            <div class="sidebar-head">
+                <h2>저장된 글</h2>
+            </div>
+            <div class="post-list" id="postList">
+                <div class="post-empty">저장된 게시물이 없습니다.</div>
+            </div>
+        </aside>
         <div class="editor-pane">
+            <div class="post-toolbar">
+                <input id="postTitle" type="text" placeholder="게시물 제목 (비워두면 첫 번째 heading 사용)" />
+                <div class="post-actions">
+                    <button id="savePost" type="button">저장</button>
+                    <button id="newPost" type="button">새 글</button>
+                    <button id="deletePost" type="button" disabled>삭제</button>
+                </div>
+                <div id="saveStatus" class="save-status"></div>
+            </div>
             <textarea id="markdown"
                 placeholder="마크다운을 입력하세요...&#10;&#10;--- 로 카드를 구분합니다.&#10;&#10;# 제목&#10;본문 내용...&#10;&#10;---&#10;&#10;# 두 번째 카드&#10;내용..."></textarea>
         </div>
@@ -208,13 +383,80 @@
         const MD_INLINE_REF_RE = /!\[([^\]]*)\]\(\s*(cid:img-\d+)\s*\)/g;
         let debounceTimer = null;
         let inlineImageSeq = 0;
+        let currentPostId = null;
+        let savedPosts = [];
+        let activePreviewUrls = [];
         const inlineImages = new Map();
 
         const $md = document.getElementById("markdown");
+        const $main = document.querySelector(".main");
         const $preview = document.getElementById("preview");
         const $preset = document.getElementById("preset");
         const $ratio = document.getElementById("ratio");
         const $bgImage = document.getElementById("bgImage");
+        const $toggleSidebar = document.getElementById("toggleSidebar");
+        const $postTitle = document.getElementById("postTitle");
+        const $savePost = document.getElementById("savePost");
+        const $newPost = document.getElementById("newPost");
+        const $deletePost = document.getElementById("deletePost");
+        const $postList = document.getElementById("postList");
+        const $saveStatus = document.getElementById("saveStatus");
+        const SIDEBAR_STATE_KEY = "instaCard.sidebarCollapsed";
+
+        function escapeHtml(text) {
+            return String(text)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#39;");
+        }
+
+        function formatDate(isoText) {
+            const date = new Date(isoText);
+            if (Number.isNaN(date.getTime())) return "";
+            return date.toLocaleString("ko-KR", {
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+            });
+        }
+
+        function setStatus(message, isError = false) {
+            $saveStatus.textContent = message || "";
+            $saveStatus.style.color = isError ? "#ff7f7f" : "#64d98b";
+            if (!message) return;
+            clearTimeout(setStatus.timer);
+            setStatus.timer = setTimeout(() => {
+                if ($saveStatus.textContent === message) $saveStatus.textContent = "";
+            }, 2400);
+        }
+
+        function updateDeleteButtonState() {
+            $deletePost.disabled = !currentPostId;
+        }
+
+        function setSidebarCollapsed(collapsed) {
+            $main.classList.toggle("sidebar-collapsed", collapsed);
+            $toggleSidebar.textContent = collapsed ? "목록 열기" : "목록 접기";
+            $toggleSidebar.setAttribute("aria-expanded", String(!collapsed));
+            try {
+                localStorage.setItem(SIDEBAR_STATE_KEY, collapsed ? "1" : "0");
+            } catch (_err) {
+                // no-op
+            }
+        }
+
+        function restoreSidebarState() {
+            let collapsed = false;
+            try {
+                collapsed = localStorage.getItem(SIDEBAR_STATE_KEY) === "1";
+            } catch (_err) {
+                collapsed = false;
+            }
+            setSidebarCollapsed(collapsed);
+        }
 
         function makeInlineImageRef(dataUrl) {
             inlineImageSeq += 1;
@@ -247,21 +489,133 @@
             $md.selectionStart = $md.selectionEnd = cursor;
         }
 
-        // Load presets
-        fetch("/api/presets")
-            .then((r) => r.json())
-            .then((presets) => {
-                presets.forEach((p) => {
-                    const opt = document.createElement("option");
-                    opt.value = p.name;
-                    opt.textContent = p.name;
-                    opt.title = p.description;
-                    $preset.appendChild(opt);
-                });
+        function clearPreviewUrls() {
+            activePreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+            activePreviewUrls = [];
+        }
+
+        async function loadPresets() {
+            const res = await fetch("/api/presets");
+            const presets = await res.json();
+            presets.forEach((p) => {
+                const opt = document.createElement("option");
+                opt.value = p.name;
+                opt.textContent = p.name;
+                opt.title = p.description;
+                $preset.appendChild(opt);
             });
+            const hasReference = presets.some((p) => p.name === "reference");
+            if (hasReference) $preset.value = "reference";
+            else if (presets.length) $preset.value = presets[0].name;
+        }
+
+        function renderPostList(posts) {
+            savedPosts = posts;
+            if (!posts.length) {
+                $postList.innerHTML = '<div class="post-empty">저장된 게시물이 없습니다.</div>';
+                return;
+            }
+            $postList.innerHTML = posts
+                .map((post) => {
+                    const isActive = post.id === currentPostId ? "active" : "";
+                    const title = escapeHtml(post.title || "제목 없음");
+                    const updatedAt = escapeHtml(formatDate(post.updatedAt));
+                    return `<button type="button" class="post-item ${isActive}" data-id="${post.id}">
+                                <div class="post-item-title">${title}</div>
+                                <div class="post-item-meta">${updatedAt}</div>
+                            </button>`;
+                })
+                .join("");
+        }
+
+        async function loadPostList() {
+            const res = await fetch("/api/posts");
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "게시물 목록을 가져오지 못했습니다.");
+            renderPostList(data);
+        }
+
+        async function loadPost(postId) {
+            const res = await fetch(`/api/posts/${encodeURIComponent(postId)}`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "게시물을 불러오지 못했습니다.");
+            currentPostId = data.id;
+            $postTitle.value = data.title || "";
+            $md.value = compactDataImageRefs(String(data.markdown || ""));
+            if ([...$preset.options].some((opt) => opt.value === data.preset)) {
+                $preset.value = data.preset;
+            }
+            if (data.ratio) $ratio.value = data.ratio;
+            $bgImage.value = data.backgroundImage || "";
+            updateDeleteButtonState();
+            renderPostList(savedPosts);
+            renderPreview();
+            setStatus("게시물을 불러왔습니다.");
+        }
+
+        function resetToNewPost() {
+            currentPostId = null;
+            $postTitle.value = "";
+            $md.value = "";
+            $bgImage.value = "";
+            updateDeleteButtonState();
+            renderPostList(savedPosts);
+            renderPreview();
+            setStatus("새 게시물 작성 모드");
+        }
+
+        async function savePost() {
+            const payload = {
+                title: $postTitle.value.trim(),
+                markdown: expandInlineImageRefs($md.value),
+                preset: $preset.value,
+                ratio: $ratio.value,
+                backgroundImage: $bgImage.value.trim(),
+            };
+            if (!payload.markdown.trim()) {
+                setStatus("본문(markdown)을 입력해 주세요.", true);
+                return;
+            }
+            const isUpdate = Boolean(currentPostId);
+            const endpoint = isUpdate ? `/api/posts/${encodeURIComponent(currentPostId)}` : "/api/posts";
+            const method = isUpdate ? "PUT" : "POST";
+            const res = await fetch(endpoint, {
+                method,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "게시물 저장 실패");
+            currentPostId = data.id;
+            $postTitle.value = data.title || $postTitle.value;
+            updateDeleteButtonState();
+            await loadPostList();
+            setStatus(isUpdate ? "게시물을 수정했습니다." : "게시물을 저장했습니다.");
+        }
+
+        async function deletePost() {
+            if (!currentPostId) return;
+            if (!window.confirm("현재 게시물을 삭제할까요?")) return;
+            const res = await fetch(`/api/posts/${encodeURIComponent(currentPostId)}`, {
+                method: "DELETE",
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || "게시물 삭제 실패");
+            }
+            currentPostId = null;
+            $postTitle.value = "";
+            $md.value = "";
+            $bgImage.value = "";
+            updateDeleteButtonState();
+            await loadPostList();
+            renderPreview();
+            setStatus("게시물을 삭제했습니다.");
+        }
 
         function renderPreview() {
             const markdown = $md.value.trim();
+            clearPreviewUrls();
             if (!markdown) {
                 $preview.innerHTML = '<div class="empty-state">왼쪽에 마크다운을 입력하면 카드 프리뷰가 여기에 표시됩니다</div>';
                 return;
@@ -291,17 +645,20 @@
 
                     const scaledW = Math.round(data.width * PREVIEW_SCALE);
                     const scaledH = Math.round(data.height * PREVIEW_SCALE);
+                    const previewUrls = [];
 
                     $preview.innerHTML = data.cards
                         .map((html, i) => {
                             const blob = new Blob([html], { type: "text/html" });
                             const url = URL.createObjectURL(blob);
+                            previewUrls.push(url);
                             return `<div class="card-frame" style="width:${scaledW}px;height:${scaledH}px">
                 <iframe src="${url}" width="${data.width}" height="${data.height}" style="transform:scale(${PREVIEW_SCALE});transform-origin:top left"></iframe>
                 <span class="card-number">${i + 1} / ${data.cards.length}</span>
               </div>`;
                         })
                         .join("");
+                    activePreviewUrls = previewUrls;
                 })
                 .catch((err) => {
                     $preview.innerHTML = `<div class="empty-state" style="color:#ff6b6b">Error: ${err.message}</div>`;
@@ -345,12 +702,39 @@
         $preset.addEventListener("change", renderPreview);
         $ratio.addEventListener("change", renderPreview);
         $bgImage.addEventListener("change", renderPreview);
+        $savePost.addEventListener("click", () => {
+            savePost().catch((err) => setStatus(err.message, true));
+        });
+        $newPost.addEventListener("click", resetToNewPost);
+        $deletePost.addEventListener("click", () => {
+            deletePost().catch((err) => setStatus(err.message, true));
+        });
+        $postList.addEventListener("click", (event) => {
+            const button = event.target.closest(".post-item");
+            if (!button) return;
+            loadPost(button.dataset.id).catch((err) => setStatus(err.message, true));
+        });
+        $toggleSidebar.addEventListener("click", () => {
+            const isCollapsed = $main.classList.contains("sidebar-collapsed");
+            setSidebarCollapsed(!isCollapsed);
+        });
 
         // If browser restored previous long data URLs, compact once on load.
         const compactedInitial = compactDataImageRefs($md.value);
         if (compactedInitial !== $md.value) {
             $md.value = compactedInitial;
         }
+
+        async function init() {
+            updateDeleteButtonState();
+            restoreSidebarState();
+            await loadPresets();
+            await loadPostList();
+        }
+
+        init().catch((err) => {
+            setStatus(err.message, true);
+        });
     </script>
 </body>
 

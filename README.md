@@ -25,6 +25,26 @@ node src/cli.js -i examples/sample.md -o output
 npm run example
 ```
 
+웹 CMS(저장/조회) 모드:
+
+```bash
+npm run web
+```
+
+- 브라우저에서 `http://localhost:5173` (Vite + React/shadcn UI)
+- API 서버는 `http://localhost:3000`에서 동작
+- 좌측 상단에서 제목/본문 입력 후 `저장`
+- 저장된 글은 목록에서 다시 불러와 수정/삭제 가능
+- 데이터는 `data/content.db`(SQLite)에 저장됩니다.
+- 본문의 `data:image/...;base64,...` 이미지는 DB의 BLOB으로 저장/복원됩니다.
+
+프런트엔드만 빌드해서 Express에서 정적으로 서빙하려면:
+
+```bash
+npm run build:web
+npm run web:api
+```
+
 ## 카드 분할 규칙
 
 1. 마크다운에 `---` 구분선이 있으면, 구분선 기준으로 카드가 나뉩니다.
