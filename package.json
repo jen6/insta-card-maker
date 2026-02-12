@@ -1,0 +1,27 @@
+{
+  "name": "insta-card-maker",
+  "version": "1.0.0",
+  "description": "Generate 4:3 Instagram card-news PNG slides from Markdown",
+  "main": "src/cli.js",
+  "bin": {
+    "insta-card": "src/cli.js"
+  },
+  "scripts": {
+    "start": "node src/cli.js",
+    "example": "node src/cli.js -i examples/sample.md -o output"
+  },
+  "keywords": [
+    "markdown",
+    "instagram",
+    "cardnews",
+    "png",
+    "slides"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^14.0.1",
+    "marked": "^16.2.1",
+    "puppeteer": "^24.2.0"
+  }
+}
