@@ -52,25 +52,51 @@ node src/cli.js \
   --emphasis-style highlight
 ```
 
-- `--preset`: 스타일 프리셋 선택 (`reference`, `glow`, `paper`, `sports-hero`)
+- `--preset`: 스타일 프리셋 선택 (`reference`, `glow`, `glowless`, `paper`, `sports-hero`)
 - `--list-presets`: 사용 가능한 프리셋 목록 출력
 - `--output` 미지정 시 자동 출력 폴더: `output/yyyy-mm-dd-{title}`
 - `--ratio`: 기본 비율 지정 (`4:5`, `1:1`, `3:3`, `3:4`, `4:3` 등)
 - `--width`, `--height`: 둘 다 주면 고정 크기, 하나만 주면 `--ratio`로 나머지 자동 계산
 - `--max-chars`: 자동 분할 시 카드당 최대 문자 수
 - `--font-family`: 폰트 지정
-- `--bg-color`, `--bg-image`: 배경색 또는 배경 이미지 지정 (로컬 경로/URL 모두 가능)
+- `--bg-color`, `--bg-image`: 배경색 또는 배경 이미지 지정 (로컬 경로/URL 모두 가능, 전체 카드에 적용)
 - `--title-scale`, `--body-scale`: 제목/본문 크기 배율 조정
 - `--small-text-scale`: 코드/작은 글씨 크기 배율 조정
 - `--title-line-height`, `--body-line-height`: 행간 조정
 - `--emphasis-style`: 강조 규칙 통일 (`accent-underline`, `highlight`, `bold`, `glow`)
 - 카드 내부 텍스트가 넘치면 글자 크기를 자동으로 축소해 균형을 맞춥니다.
 
+## 페이지별 배경 이미지
+
+`--bg-image`는 모든 카드에 동일한 배경을 적용합니다. 특정 카드에만 개별 배경 이미지를 지정하려면 마크다운 안에 HTML 코멘트 디렉티브를 사용하세요.
+
+```markdown
+<!-- bg-image: https://example.com/photo1.jpg -->
+# 첫 번째 카드
+이 카드에만 배경 이미지가 적용됩니다.
+
+---
+
+# 두 번째 카드
+배경 이미지 없이 기본 배경색을 사용합니다.
+
+---
+
+<!-- bg-image: https://example.com/photo2.jpg -->
+# 세 번째 카드
+다른 배경 이미지가 적용됩니다.
+```
+
+- 디렉티브가 있는 카드는 `--bg-image` 글로벌 설정을 오버라이드합니다.
+- 디렉티브가 없는 카드는 `--bg-image` 값이 있으면 그것을 사용하고, 없으면 프리셋 기본 배경을 사용합니다.
+- 웹 UI에서는 헤더의 "배경 이미지" 입력 필드로 글로벌 배경을 지정할 수 있습니다.
+
 ## 프리셋 설계
 
 - `reference`: 현재 레퍼런스 톤을 그대로 분리한 기본 프리셋
 - `glow`: 네온 강조/하이라이트가 더 강한 버전
-- `paper`: 따뜻한 에디토리얼 톤
+- `glowless`: `glow` 톤을 유지하면서 발광 강조를 제거한 버전
+- `paper`: 검정 배경 기반의 따뜻한 에디토리얼 톤
 - `sports-hero`: 배경 이미지 중심 + 텍스트 포지션 지정형 템플릿
 
 프리셋은 아래 항목을 포함합니다.

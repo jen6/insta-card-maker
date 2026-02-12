@@ -186,6 +186,9 @@
                     <option value="4:3">4:3</option>
                 </select>
             </label>
+            <label>배경 이미지
+                <input id="bgImage" type="text" placeholder="URL 또는 비워두기" style="width:180px" />
+            </label>
         </div>
     </header>
 
@@ -201,12 +204,48 @@
 
     <script>
         const PREVIEW_SCALE = 0.38;
+        const MD_DATA_IMAGE_RE = /!\[([^\]]*)\]\(\s*(data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+)\s*\)/g;
+        const MD_INLINE_REF_RE = /!\[([^\]]*)\]\(\s*(cid:img-\d+)\s*\)/g;
         let debounceTimer = null;
+        let inlineImageSeq = 0;
+        const inlineImages = new Map();
 
         const $md = document.getElementById("markdown");
         const $preview = document.getElementById("preview");
         const $preset = document.getElementById("preset");
         const $ratio = document.getElementById("ratio");
+        const $bgImage = document.getElementById("bgImage");
+
+        function makeInlineImageRef(dataUrl) {
+            inlineImageSeq += 1;
+            const ref = `cid:img-${inlineImageSeq}`;
+            inlineImages.set(ref, dataUrl);
+            return ref;
+        }
+
+        function expandInlineImageRefs(markdown) {
+            return markdown.replace(MD_INLINE_REF_RE, (match, alt, ref) => {
+                const dataUrl = inlineImages.get(ref);
+                if (!dataUrl) return match;
+                return `![${alt || "image"}](${dataUrl})`;
+            });
+        }
+
+        function compactDataImageRefs(markdown) {
+            return markdown.replace(MD_DATA_IMAGE_RE, (_m, alt, dataUrl) => {
+                const ref = makeInlineImageRef(dataUrl);
+                return `![${alt || "image"}](${ref})`;
+            });
+        }
+
+        function insertAtCursor(text) {
+            const start = $md.selectionStart;
+            const end = $md.selectionEnd;
+            const val = $md.value;
+            $md.value = val.slice(0, start) + text + val.slice(end);
+            const cursor = start + text.length;
+            $md.selectionStart = $md.selectionEnd = cursor;
+        }
 
         // Load presets
         fetch("/api/presets")
@@ -227,14 +266,16 @@
                 $preview.innerHTML = '<div class="empty-state">왼쪽에 마크다운을 입력하면 카드 프리뷰가 여기에 표시됩니다</div>';
                 return;
             }
+            const expandedMarkdown = expandInlineImageRefs(markdown);
 
             fetch("/api/render", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    markdown,
+                    markdown: expandedMarkdown,
                     preset: $preset.value,
                     ratio: $ratio.value,
+                    backgroundImage: $bgImage.value.trim() || undefined,
                 }),
             })
                 .then((r) => r.json())
@@ -267,12 +308,49 @@
                 });
         }
 
+        // Paste image from clipboard as short inline ref (expand to data URL only when rendering)
+        $md.addEventListener("paste", (e) => {
+            const items = e.clipboardData && e.clipboardData.items;
+            if (!items) return;
+            for (const item of items) {
+                if (!item.type.startsWith("image/")) continue;
+                e.preventDefault();
+                const file = item.getAsFile();
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const dataUrl = reader.result;
+                    const ref = makeInlineImageRef(dataUrl);
+                    const mdImage = `![image](${ref})`;
+                    insertAtCursor(mdImage);
+                    $md.dispatchEvent(new Event("input"));
+                };
+                reader.readAsDataURL(file);
+                return;
+            }
+
+            const pastedText = e.clipboardData.getData("text");
+            if (pastedText && pastedText.includes("data:image/")) {
+                e.preventDefault();
+                const compacted = compactDataImageRefs(pastedText);
+                insertAtCursor(compacted);
+                $md.dispatchEvent(new Event("input"));
+            }
+        });
+
         $md.addEventListener("input", () => {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(renderPreview, 400);
         });
         $preset.addEventListener("change", renderPreview);
         $ratio.addEventListener("change", renderPreview);
+        $bgImage.addEventListener("change", renderPreview);
+
+        // If browser restored previous long data URLs, compact once on load.
+        const compactedInitial = compactDataImageRefs($md.value);
+        if (compactedInitial !== $md.value) {
+            $md.value = compactedInitial;
+        }
     </script>
 </body>
 

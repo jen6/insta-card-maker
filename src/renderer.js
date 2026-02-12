@@ -83,8 +83,18 @@ function autoSplitMarkdown(markdown, maxChars) {
     return cards;
 }
 
+function extractCardDirectives(cardMarkdown) {
+    const directives = {};
+    const cleaned = cardMarkdown.replace(/<!--\s*(bg-image)\s*:\s*(.+?)\s*-->/gi, (_m, key, value) => {
+        directives[key.toLowerCase()] = value.trim();
+        return "";
+    });
+    return { directives, cleaned };
+}
+
 function parseCard(cardMarkdown) {
-    const tokens = marked.lexer(cardMarkdown);
+    const { directives, cleaned } = extractCardDirectives(cardMarkdown);
+    const tokens = marked.lexer(cleaned);
     let title = "";
     const bodyTokens = [];
     for (const token of tokens) {
@@ -93,8 +103,8 @@ function parseCard(cardMarkdown) {
     }
     const bodyMarkdown = bodyTokens.map((t) => t.raw || "").join("");
     const bodyHtml = marked.parse(bodyMarkdown || "");
-    const plainLength = stripMarkdown(cardMarkdown).length;
-    return { title, bodyHtml, bodyTokens, plainLength };
+    const plainLength = stripMarkdown(cleaned).length;
+    return { title, bodyHtml, bodyTokens, plainLength, directives };
 }
 
 function mergeTheme(preset, options, backgroundImage) {
@@ -302,9 +312,13 @@ function renderMarkdownToCards(markdown, opts = {}) {
     if (!rawCards.length) return { cards: [], width, height };
 
     const cards = rawCards.map(parseCard);
-    const htmlCards = cards.map((card) =>
-        renderCardHtml({ card, width, height, fontFamily: theme.fontFamily, theme })
-    );
+    const htmlCards = cards.map((card) => {
+        const cardBgImage = card.directives["bg-image"] || "";
+        const cardTheme = cardBgImage
+            ? { ...theme, backgroundImage: cardBgImage }
+            : theme;
+        return renderCardHtml({ card, width, height, fontFamily: cardTheme.fontFamily, theme: cardTheme });
+    });
 
     return { cards: htmlCards, width, height, presetName };
 }
@@ -315,6 +329,7 @@ module.exports = {
     splitByExplicitDivider,
     autoSplitMarkdown,
     parseCard,
+    extractCardDirectives,
     mergeTheme,
     renderCardHtml,
     parseRatio,

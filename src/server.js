@@ -22,11 +22,11 @@ app.get("/api/presets", (_req, res) => {
 // Render markdown -> array of HTML card strings
 app.post("/api/render", (req, res) => {
     try {
-        const { markdown, preset, ratio, maxChars } = req.body;
+        const { markdown, preset, ratio, maxChars, backgroundImage } = req.body;
         if (!markdown || !markdown.trim()) {
             return res.json({ cards: [], width: 1080, height: 1350 });
         }
-        const result = renderMarkdownToCards(markdown, { preset, ratio, maxChars });
+        const result = renderMarkdownToCards(markdown, { preset, ratio, maxChars, backgroundImage });
         res.json(result);
     } catch (err) {
         res.status(400).json({ error: err.message });

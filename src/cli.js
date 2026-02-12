@@ -15,7 +15,7 @@ marked.setOptions({
 program
   .option("-i, --input <path>", "Input markdown file path")
   .option("-o, --output <path>", "Output directory")
-  .option("--preset <name>", "Preset name (reference, glow, paper, sports-hero)", "reference")
+  .option("--preset <name>", "Preset name (reference, glow, glowless, paper, sports-hero)", "reference")
   .option("--list-presets", "List available presets")
   .option("--ratio <w:h>", "Aspect ratio (e.g. 4:5, 1:1, 3:4, 4:3)", "4:5")
   .option("--width <number>", "Image width (if omitted, auto from ratio)")
