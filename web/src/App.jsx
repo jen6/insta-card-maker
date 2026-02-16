@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Code, Eye, Grid2x2, LayoutList, Menu, Plus, Save, Sparkles, Trash2 } from "lucide-react";
+import { Code, Eye, GripVertical, Grid2x2, LayoutList, Menu, Plus, Save, Sparkles, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { renderMarkdownToCards } from "@/lib/renderer";
 import { exportCardsToPng } from "@/lib/exporter";
@@ -33,7 +33,44 @@ export default function App() {
   const markdownRef = useRef(null);
   const milkdownRef = useRef(null);
 
-  const previewScale = sidebarCollapsed ? PREVIEW_SCALE_COLLAPSED : PREVIEW_SCALE_DEFAULT;
+  const PREVIEW_MIN_WIDTH = 280;
+  const [previewWidth, setPreviewWidth] = useState(null); // null = auto (CSS default)
+  const [measuredPreviewWidth, setMeasuredPreviewWidth] = useState(null);
+  const resizingRef = useRef(false);
+  const workspaceRef = useRef(null);
+  const previewPaneRef = useRef(null);
+
+  const handleResizeStart = useCallback((e) => {
+    e.preventDefault();
+    resizingRef.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const onMove = (ev) => {
+      if (!resizingRef.current || !workspaceRef.current) return;
+      const rect = workspaceRef.current.getBoundingClientRect();
+      const newPreviewW = rect.right - ev.clientX;
+      const clamped = Math.max(PREVIEW_MIN_WIDTH, Math.min(newPreviewW, rect.width * 0.6));
+      setPreviewWidth(clamped);
+    };
+
+    const onUp = () => {
+      resizingRef.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, []);
+
+  const effectivePreviewWidth = measuredPreviewWidth ?? previewWidth ?? 340;
+  const previewScale = Math.min(
+    sidebarCollapsed ? PREVIEW_SCALE_COLLAPSED : PREVIEW_SCALE_DEFAULT,
+    Math.max(0.15, (effectivePreviewWidth - 40) / previewState.width)
+  );
   const scaledW = useMemo(() => Math.round(previewState.width * previewScale), [previewScale, previewState.width]);
   const scaledH = useMemo(() => Math.round(previewState.height * previewScale), [previewScale, previewState.height]);
 
@@ -160,6 +197,19 @@ export default function App() {
 
   useEffect(() => () => { clearTimer(); clearUrls(); }, [clearTimer, clearUrls]);
 
+  // Track actual preview pane width via ResizeObserver
+  useEffect(() => {
+    const el = previewPaneRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setMeasuredPreviewWidth(entry.contentRect.width);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // --- render ---
 
   return (
@@ -210,7 +260,12 @@ export default function App() {
         </div>
       </header>
 
-      <main className={cn("workspace-grid", sidebarCollapsed && "is-sidebar-collapsed")}>
+      <main ref={workspaceRef} className={cn("workspace-grid", sidebarCollapsed && "is-sidebar-collapsed")}
+        style={previewWidth ? {
+          gridTemplateColumns: sidebarCollapsed
+            ? `1fr 6px ${previewWidth}px`
+            : `clamp(194px, 20.5vw, 252px) 1fr 6px ${previewWidth}px`
+        } : undefined}>
         <aside className={cn("library-pane", sidebarCollapsed && "is-collapsed")}>
           <div className="pane-header">
             <p>Library</p>
@@ -253,7 +308,11 @@ export default function App() {
           <p className={cn("status-line", status.isError && "is-error")}>{status.message}</p>
         </section>
 
-        <section className="preview-pane">
+        <div className="resize-handle" onMouseDown={handleResizeStart} role="separator" aria-orientation="vertical" aria-label="프리뷰 패널 크기 조절">
+          <GripVertical size={12} />
+        </div>
+
+        <section ref={previewPaneRef} className="preview-pane">
           <div className="pane-header preview-header">
             <p>Live Preview</p>
             <div className="preview-header-actions">

@@ -51,12 +51,12 @@ body {
 }
 
 .topbar {
-  height: 70px;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  min-height: 48px;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 22px;
-  padding: 0 18px;
+  gap: 12px 22px;
+  padding: 8px 18px;
   border-bottom: 1px solid var(--line);
   background: var(--surface);
 }
@@ -116,8 +116,13 @@ body {
 }
 
 .topbar-center {
-  justify-self: center;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 11px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .toolbar-label {
@@ -164,6 +169,7 @@ body {
 
 .topbar-right {
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .ratio-select-wrap {
@@ -201,13 +207,13 @@ body {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: clamp(194px, 20.5vw, 252px) minmax(380px, 1fr) clamp(330px, 37.5vw, 428px);
+  grid-template-columns: clamp(194px, 20.5vw, 252px) 1fr 6px 340px;
   background: var(--bg);
   overflow: hidden;
 }
 
 .workspace-grid.is-sidebar-collapsed {
-  grid-template-columns: minmax(0, 1fr) clamp(560px, 39vw, 700px);
+  grid-template-columns: 1fr 6px 340px;
 }
 
 .workspace-grid.is-sidebar-collapsed .editor-pane {
@@ -230,6 +236,26 @@ body {
 .preview-pane {
   border-right: 0;
   background: #eef1f5;
+}
+
+/* ── Resize Handle ── */
+.resize-handle {
+  width: 6px;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--line);
+  color: #8a94a7;
+  transition: background 0.15s, color 0.15s;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.resize-handle:hover,
+.resize-handle:active {
+  background: #b7bfcc;
+  color: #4b5563;
 }
 
 .library-pane.is-collapsed {
@@ -572,15 +598,13 @@ body {
 
 @media (max-width: 900px) {
   .topbar {
-    grid-template-columns: 1fr;
-    height: auto;
-    padding: 12px;
-    gap: 10px;
+    padding: 8px 12px;
+    gap: 8px;
   }
 
   .topbar-center,
   .topbar-right {
-    justify-self: start;
+    justify-content: flex-start;
   }
 
   .workspace-grid {
@@ -592,6 +616,10 @@ body {
   .preview-pane {
     border-right: 0;
     border-bottom: 1px solid var(--line);
+  }
+
+  .resize-handle {
+    display: none;
   }
 
   .editor-title-input {
