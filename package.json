@@ -12,6 +12,7 @@
     "web:api": "node src/server.js",
     "web:ui": "vite --config web/vite.config.mjs",
     "build:web": "vite build --config web/vite.config.mjs",
+    "test": "vitest --run",
     "example": "node src/cli.js -i examples/sample.md -o output"
   },
   "keywords": [
