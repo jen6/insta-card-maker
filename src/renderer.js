@@ -280,7 +280,7 @@ ${emCss}
 .body table{width:100%;table-layout:fixed;border-collapse:collapse;margin:0 auto 1em;background:var(--panel);border:1px solid var(--line);border-radius:.4em;overflow:hidden}
 .body th,.body td{border:1px solid var(--line);padding:.42em .46em;text-align:center;vertical-align:top;word-break:break-word}
 .body th{background:color-mix(in srgb,var(--title) 28%,transparent);color:#fff;font-weight:730}
-.body img{display:block;width:100%;max-height:7.2em;object-fit:cover;border-radius:.42em;border:1px solid var(--line);margin:.2em 0 .95em}
+.body img{display:block;width:100%;max-width:100%;height:auto;max-height:22em;object-fit:contain;object-position:center;border-radius:.42em;border:1px solid var(--line);margin:.2em 0 .95em}
 .body kbd{font-size:.78em;padding:.06em .3em;border-radius:.28em;border:1px solid var(--line);background:var(--panel-strong)}
 </style></head><body>
 <main class="card">

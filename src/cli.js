@@ -915,8 +915,11 @@ function renderCardHtml({
       .body img {
         display: block;
         width: 100%;
-        max-height: 7.2em;
-        object-fit: cover;
+        max-width: 100%;
+        height: auto;
+        max-height: 22em;
+        object-fit: contain;
+        object-position: center;
         border-radius: 0.42em;
         border: 1px solid var(--line);
         margin: 0.2em 0 0.95em;
