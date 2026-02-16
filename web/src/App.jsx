@@ -3,6 +3,8 @@ import { Grid2x2, LayoutList, Menu, Plus, Save, Sparkles, Trash2 } from "lucide-
 import { cn } from "@/lib/utils";
 import { renderMarkdownToCards, PRESETS } from "@/lib/renderer";
 import * as storage from "@/lib/storage";
+import PresetManagerPanel from "./components/PresetManagerPanel";
+import { getAllPresets } from "@/lib/presetStorage";
 import { exportCardsToPng } from "@/lib/exporter";
 
 const PREVIEW_SCALE_DEFAULT = 0.305;
@@ -216,7 +218,9 @@ export default function App() {
   );
 
   const loadPresets = useCallback(() => {
-    const list = Object.entries(PRESETS).map(([name, p]) => ({
+    const all = getAllPresets();
+    setAllPresetsMap(all);
+    const list = Object.entries(all).map(([name, p]) => ({
       name,
       description: p.description,
       titleColor: p.titleColor,
@@ -276,6 +280,7 @@ export default function App() {
         preset,
         ratio,
         backgroundImage: bgImage.trim() || undefined,
+        presets: allPresetsMap,
       });
 
       if (renderRequestRef.current !== requestId) return;
@@ -361,6 +366,8 @@ export default function App() {
   }, [currentPostId, loadPostList, showStatus]);
 
   const [exporting, setExporting] = useState(false);
+  const [presetPanelOpen, setPresetPanelOpen] = useState(false);
+  const [allPresetsMap, setAllPresetsMap] = useState(() => getAllPresets());
 
   const exportCards = useCallback(async () => {
     const md = expandInlineImageRefs(markdown).trim();
@@ -374,6 +381,7 @@ export default function App() {
         preset,
         ratio,
         backgroundImage: bgImage.trim() || undefined,
+        presets: allPresetsMap,
       });
       if (!data.cards.length) {
         showStatus("생성된 카드가 없습니다.", true);
@@ -528,6 +536,14 @@ export default function App() {
               </button>
             ))}
           </div>
+          <button
+            type="button"
+            className="style-manage-btn"
+            onClick={() => setPresetPanelOpen(true)}
+            title="프리셋 관리"
+          >
+            <Sparkles size={13} />
+          </button>
         </div>
 
         <div className="topbar-right">
@@ -697,6 +713,22 @@ export default function App() {
         <p>Auto-saved locally</p>
         <p>Markdown Enabled</p>
       </footer>
+
+      <PresetManagerPanel
+        open={presetPanelOpen}
+        onClose={() => setPresetPanelOpen(false)}
+        onPresetsChange={(newPresets) => {
+          setAllPresetsMap(newPresets);
+          loadPresets();
+        }}
+        currentPreset={preset}
+        onSelectPreset={(name) => {
+          setPreset(name);
+          setPresetPanelOpen(false);
+        }}
+        previewMarkdown={markdown}
+        previewRatio={ratio}
+      />
     </div>
   );
 }

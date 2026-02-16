@@ -283,9 +283,10 @@ ${card.title ? `<h1>${card.title}</h1>` : ""}
  * Render markdown to an array of HTML strings (one per card).
  */
 export function renderMarkdownToCards(markdown, opts = {}) {
+    const presetsMap = opts.presets || PRESETS;
     const presetName = opts.preset || "reference";
-    const preset = PRESETS[presetName];
-    if (!preset) throw new Error(`Unknown preset: ${presetName}. Available: ${Object.keys(PRESETS).join(", ")}`);
+    const preset = presetsMap[presetName];
+    if (!preset) throw new Error(`Unknown preset: ${presetName}. Available: ${Object.keys(presetsMap).join(", ")}`);
 
     const theme = mergeTheme(preset, opts, opts.backgroundImage || "");
     const { ratioW, ratioH } = parseRatio(opts.ratio || "4:5");
