@@ -86,8 +86,11 @@ function parseCard(cardMarkdown) {
     const tokens = marked.lexer(cleaned);
     let title = "";
     const bodyTokens = [];
+    let titleJustFound = false;
     for (const token of tokens) {
-        if (!title && token.type === "heading") { title = token.text.trim(); continue; }
+        if (!title && token.type === "heading") { title = token.text.trim(); titleJustFound = true; continue; }
+        if (titleJustFound && token.type === "hr") { titleJustFound = false; continue; }
+        titleJustFound = false;
         bodyTokens.push(token);
     }
     const bodyMarkdown = bodyTokens.map((t) => t.raw || "").join("");
