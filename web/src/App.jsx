@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Grid2x2, LayoutList, Menu, Plus, Save, Sparkles, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { renderMarkdownToCards, PRESETS } from "@/lib/renderer";
+import * as storage from "@/lib/storage";
+import { exportCardsToPng } from "@/lib/exporter";
 
 const PREVIEW_SCALE_DEFAULT = 0.305;
 const PREVIEW_SCALE_COLLAPSED = 0.545;
@@ -137,11 +140,13 @@ export default function App() {
     [makeInlineImageRef]
   );
 
-  const loadPresets = useCallback(async () => {
-    const res = await fetch("/api/presets");
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "프리셋 목록을 불러오지 못했습니다.");
-    const list = Array.isArray(data) ? data : [];
+  const loadPresets = useCallback(() => {
+    const list = Object.entries(PRESETS).map(([name, p]) => ({
+      name,
+      description: p.description,
+      titleColor: p.titleColor,
+      bgColor: p.bgColor,
+    }));
     setPresets(list);
     setPreset((current) => {
       if (list.some((item) => item.name === current)) return current;
@@ -150,18 +155,14 @@ export default function App() {
     });
   }, []);
 
-  const loadPostList = useCallback(async () => {
-    const res = await fetch("/api/posts");
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "게시물 목록을 불러오지 못했습니다.");
-    setSavedPosts(Array.isArray(data) ? data : []);
+  const loadPostList = useCallback(() => {
+    setSavedPosts(storage.listPosts());
   }, []);
 
   const loadPost = useCallback(
-    async (postId) => {
-      const res = await fetch(`/api/posts/${encodeURIComponent(postId)}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "게시물을 불러오지 못했습니다.");
+    (postId) => {
+      const data = storage.getPost(postId);
+      if (!data) { showStatus("게시물을 찾을 수 없습니다.", true); return; }
 
       setCurrentPostId(data.id);
       setPostTitle(data.title || "");
@@ -182,7 +183,7 @@ export default function App() {
     showStatus("새 게시물 작성 모드");
   }, [showStatus]);
 
-  const renderPreview = useCallback(async () => {
+  const renderPreview = useCallback(() => {
     const currentMarkdown = markdown.trim();
     if (!currentMarkdown) {
       clearPreviewUrls();
@@ -196,19 +197,13 @@ export default function App() {
     setPreviewState((prev) => ({ ...prev, loading: true, error: "" }));
 
     try {
-      const res = await fetch("/api/render", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          markdown: expandInlineImageRefs(markdown),
-          preset,
-          ratio,
-          backgroundImage: bgImage.trim() || undefined,
-        }),
+      const data = renderMarkdownToCards(expandInlineImageRefs(markdown), {
+        preset,
+        ratio,
+        backgroundImage: bgImage.trim() || undefined,
       });
-      const data = await res.json();
+
       if (renderRequestRef.current !== requestId) return;
-      if (!res.ok || data.error) throw new Error(data.error || "카드 렌더링 실패");
 
       const cards = Array.isArray(data.cards) ? data.cards : [];
       if (!cards.length) {
@@ -246,7 +241,7 @@ export default function App() {
     }
   }, [bgImage, clearPreviewUrls, expandInlineImageRefs, markdown, preset, ratio]);
 
-  const savePost = useCallback(async () => {
+  const savePost = useCallback(() => {
     const payload = {
       title: postTitle.trim(),
       markdown: expandInlineImageRefs(markdown),
@@ -261,40 +256,65 @@ export default function App() {
     }
 
     const isUpdate = Boolean(currentPostId);
-    const endpoint = isUpdate ? `/api/posts/${encodeURIComponent(currentPostId)}` : "/api/posts";
-    const method = isUpdate ? "PUT" : "POST";
-
-    const res = await fetch(endpoint, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "게시물 저장 실패");
+    let data;
+    if (isUpdate) {
+      data = storage.updatePost(currentPostId, payload);
+      if (!data) { showStatus("게시물을 찾을 수 없습니다.", true); return; }
+    } else {
+      data = storage.createPost(payload);
+    }
 
     setCurrentPostId(data.id);
     if (data.title) setPostTitle(data.title);
-    await loadPostList();
+    loadPostList();
     showStatus(isUpdate ? "게시물을 수정했습니다." : "게시물을 저장했습니다.");
   }, [bgImage, currentPostId, expandInlineImageRefs, loadPostList, markdown, postTitle, preset, ratio, showStatus]);
 
-  const deletePost = useCallback(async () => {
+  const deletePost = useCallback(() => {
     if (!currentPostId) return;
     if (!window.confirm("현재 게시물을 삭제할까요?")) return;
 
-    const res = await fetch(`/api/posts/${encodeURIComponent(currentPostId)}`, { method: "DELETE" });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "게시물 삭제 실패");
-    }
+    const ok = storage.deletePost(currentPostId);
+    if (!ok) { showStatus("게시물을 찾을 수 없습니다.", true); return; }
 
     setCurrentPostId(null);
     setPostTitle("");
     setMarkdown("");
     setBgImage("");
-    await loadPostList();
+    loadPostList();
     showStatus("게시물을 삭제했습니다.");
   }, [currentPostId, loadPostList, showStatus]);
+
+  const [exporting, setExporting] = useState(false);
+
+  const exportCards = useCallback(async () => {
+    const md = expandInlineImageRefs(markdown).trim();
+    if (!md) {
+      showStatus("내보낼 내용이 없습니다.", true);
+      return;
+    }
+    try {
+      setExporting(true);
+      const data = renderMarkdownToCards(md, {
+        preset,
+        ratio,
+        backgroundImage: bgImage.trim() || undefined,
+      });
+      if (!data.cards.length) {
+        showStatus("생성된 카드가 없습니다.", true);
+        return;
+      }
+      showStatus(`PNG 내보내기 중... (0/${data.cards.length})`);
+      await exportCardsToPng(data.cards, data.width, data.height, ({ current, total }) => {
+        showStatus(`PNG 내보내기 중... (${current}/${total})`);
+      });
+      showStatus(`${data.cards.length}장의 카드를 내보냈습니다.`);
+    } catch (err) {
+      showStatus(`내보내기 실패: ${err.message}`, true);
+    } finally {
+      setExporting(false);
+    }
+  }, [bgImage, expandInlineImageRefs, markdown, preset, ratio, showStatus]);
 
   const insertAtCursor = useCallback((text, start, end) => {
     setMarkdown((prev) => `${prev.slice(0, start)}${text}${prev.slice(end)}`);
@@ -344,17 +364,22 @@ export default function App() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      renderPreview().catch((err) => {
+      try {
+        renderPreview();
+      } catch (err) {
         showStatus(err.message, true);
-      });
+      }
     }, 400);
     return () => clearTimeout(timer);
   }, [renderPreview, showStatus]);
 
   useEffect(() => {
-    Promise.all([loadPresets(), loadPostList()]).catch((err) => {
+    try {
+      loadPresets();
+      loadPostList();
+    } catch (err) {
       showStatus(err.message, true);
-    });
+    }
   }, [loadPostList, loadPresets, showStatus]);
 
   useEffect(() => {
@@ -424,11 +449,12 @@ export default function App() {
           <button
             type="button"
             className="primary-cta"
+            disabled={exporting}
             onClick={() => {
-              savePost().catch((err) => showStatus(err.message, true));
+              exportCards();
             }}
           >
-            Export
+            {exporting ? "Exporting..." : "Export"}
           </button>
         </div>
       </header>
@@ -452,7 +478,7 @@ export default function App() {
                   type="button"
                   className={cn("library-item", active && "is-active")}
                   onClick={() => {
-                    loadPost(post.id).catch((err) => showStatus(err.message, true));
+                    loadPost(post.id);
                   }}
                 >
                   <p className="library-item-title">{post.title || "제목 없음"}</p>
@@ -484,7 +510,7 @@ export default function App() {
               type="button"
               className="action-btn dark"
               onClick={() => {
-                savePost().catch((err) => showStatus(err.message, true));
+                savePost();
               }}
             >
               <Save size={14} /> Save
@@ -497,7 +523,7 @@ export default function App() {
               className="action-btn"
               disabled={!currentPostId}
               onClick={() => {
-                deletePost().catch((err) => showStatus(err.message, true));
+                deletePost();
               }}
             >
               <Trash2 size={14} /> Delete
