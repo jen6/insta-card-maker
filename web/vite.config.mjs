@@ -12,6 +12,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
+      "@milkdown/crepe/theme/crepe.css": path.resolve(__dirname, "../node_modules/@milkdown/crepe/lib/theme/crepe/style.css"),
     },
   },
   css: {

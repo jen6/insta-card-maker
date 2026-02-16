@@ -59,7 +59,8 @@ function stripMarkdown(raw) {
 }
 
 function splitByExplicitDivider(markdown) {
-    return markdown.split(/\n\s*---+\s*\n/g).map((c) => c.trim()).filter(Boolean);
+    // Support both --- and *** (Milkdown serializes hr as ***)
+    return markdown.split(/\n\s*(?:---+|\*\*\*+)\s*\n/g).map((c) => c.trim()).filter(Boolean);
 }
 
 function autoSplitMarkdown(markdown, maxChars) {
@@ -305,7 +306,16 @@ function renderMarkdownToCards(markdown, opts = {}) {
     const preset = PRESETS[presetName];
     if (!preset) throw new Error(`Unknown preset: ${presetName}. Available: ${Object.keys(PRESETS).join(", ")}`);
 
-    const theme = mergeTheme(preset, opts, opts.backgroundImage || "");
+    const mainTheme = mergeTheme(preset, opts, opts.backgroundImage || "");
+
+    let firstSlideTheme = null;
+    const firstSlidePresetName = opts.firstSlidePreset;
+    if (firstSlidePresetName) {
+        const firstPreset = PRESETS[firstSlidePresetName];
+        if (!firstPreset) throw new Error(`Unknown first-slide preset: ${firstSlidePresetName}`);
+        firstSlideTheme = mergeTheme(firstPreset, opts, opts.backgroundImage || "");
+    }
+
     const { ratioW, ratioH } = parseRatio(opts.ratio || "4:5");
     const { width, height } = resolveDimensions({ ratioW, ratioH });
     const maxChars = Number(opts.maxChars) || 260;
@@ -315,11 +325,11 @@ function renderMarkdownToCards(markdown, opts = {}) {
     if (!rawCards.length) return { cards: [], width, height };
 
     const cards = rawCards.map(parseCard);
-    const htmlCards = cards.map((card) => {
+    const htmlCards = cards.map((card, index) => {
         const cardBgImage = card.directives["bg-image"] || "";
-        const cardTheme = cardBgImage
-            ? { ...theme, backgroundImage: cardBgImage }
-            : theme;
+        const isFirstSlide = index === 0 && firstSlideTheme !== null;
+        const baseTheme = isFirstSlide ? firstSlideTheme : mainTheme;
+        const cardTheme = cardBgImage ? { ...baseTheme, backgroundImage: cardBgImage } : baseTheme;
         return renderCardHtml({ card, width, height, fontFamily: cardTheme.fontFamily, theme: cardTheme });
     });
 

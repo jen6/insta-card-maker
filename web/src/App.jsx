@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Grid2x2, LayoutList, Menu, Plus, Save, Sparkles, Trash2 } from "lucide-react";
+import { Code, Eye, Grid2x2, LayoutList, Menu, Plus, Save, Sparkles, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { renderMarkdownToCards, PRESETS } from "@/lib/renderer";
 import * as storage from "@/lib/storage";
 import PresetManagerPanel from "./components/PresetManagerPanel";
 import { getAllPresets } from "@/lib/presetStorage";
 import { exportCardsToPng } from "@/lib/exporter";
+import MilkdownEditor from "./components/MilkdownEditor";
 
 const PREVIEW_SCALE_DEFAULT = 0.305;
 const PREVIEW_SCALE_COLLAPSED = 0.545;
@@ -146,6 +147,7 @@ export default function App() {
   const [postTitle, setPostTitle] = useState("");
   const [markdown, setMarkdown] = useState("");
   const [preset, setPreset] = useState("reference");
+  const [firstSlidePreset, setFirstSlidePreset] = useState("");
   const [ratio, setRatio] = useState("4:5");
   const [bgImage, setBgImage] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialSidebarState);
@@ -247,6 +249,7 @@ export default function App() {
       setPostTitle(data.title || "");
       setMarkdown(compactDataImageRefs(String(data.markdown || "")));
       setPreset(data.preset || "reference");
+      setFirstSlidePreset(data.firstSlidePreset || "");
       setRatio(data.ratio || "4:5");
       setBgImage(data.backgroundImage || "");
       showStatus("게시물을 불러왔습니다.");
@@ -258,6 +261,7 @@ export default function App() {
     setCurrentPostId(null);
     setPostTitle("");
     setMarkdown("");
+    setFirstSlidePreset("");
     setBgImage("");
     showStatus("새 게시물 작성 모드");
   }, [showStatus]);
@@ -278,6 +282,7 @@ export default function App() {
     try {
       const data = renderMarkdownToCards(expandInlineImageRefs(markdown), {
         preset,
+        firstSlidePreset: firstSlidePreset || undefined,
         ratio,
         backgroundImage: bgImage.trim() || undefined,
         presets: allPresetsMap,
@@ -319,13 +324,14 @@ export default function App() {
       setPreviewFrames([]);
       setPreviewState({ loading: false, error: err.message, width: 1080, height: 1350 });
     }
-  }, [bgImage, clearPreviewUrls, expandInlineImageRefs, markdown, preset, ratio]);
+  }, [bgImage, clearPreviewUrls, expandInlineImageRefs, firstSlidePreset, markdown, preset, ratio]);
 
   const savePost = useCallback(() => {
     const payload = {
       title: postTitle.trim(),
       markdown: expandInlineImageRefs(markdown),
       preset,
+      firstSlidePreset,
       ratio,
       backgroundImage: bgImage.trim(),
     };
@@ -348,7 +354,7 @@ export default function App() {
     if (data.title) setPostTitle(data.title);
     loadPostList();
     showStatus(isUpdate ? "게시물을 수정했습니다." : "게시물을 저장했습니다.");
-  }, [bgImage, currentPostId, expandInlineImageRefs, loadPostList, markdown, postTitle, preset, ratio, showStatus]);
+  }, [bgImage, currentPostId, expandInlineImageRefs, firstSlidePreset, loadPostList, markdown, postTitle, preset, ratio, showStatus]);
 
   const deletePost = useCallback(() => {
     if (!currentPostId) return;
@@ -360,14 +366,38 @@ export default function App() {
     setCurrentPostId(null);
     setPostTitle("");
     setMarkdown("");
+    setFirstSlidePreset("");
     setBgImage("");
     loadPostList();
     showStatus("게시물을 삭제했습니다.");
   }, [currentPostId, loadPostList, showStatus]);
 
+  const EDITOR_MODE_KEY = "instaCard.editorMode";
+  const [editorMode, setEditorMode] = useState(() => {
+    try { return localStorage.getItem(EDITOR_MODE_KEY) || "wysiwyg"; } catch { return "wysiwyg"; }
+  });
+
   const [exporting, setExporting] = useState(false);
   const [presetPanelOpen, setPresetPanelOpen] = useState(false);
   const [allPresetsMap, setAllPresetsMap] = useState(() => getAllPresets());
+
+  // Persist editor mode
+  useEffect(() => {
+    try { localStorage.setItem(EDITOR_MODE_KEY, editorMode); } catch { /* no-op */ }
+  }, [editorMode]);
+
+  // Image upload handler for Milkdown
+  const handleImageUpload = useCallback(async (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = String(reader.result || "");
+        const ref = makeInlineImageRef(dataUrl);
+        resolve(ref);
+      };
+      reader.readAsDataURL(file);
+    });
+  }, [makeInlineImageRef]);
 
   const exportCards = useCallback(async () => {
     const md = expandInlineImageRefs(markdown).trim();
@@ -379,6 +409,7 @@ export default function App() {
       setExporting(true);
       const data = renderMarkdownToCards(md, {
         preset,
+        firstSlidePreset: firstSlidePreset || undefined,
         ratio,
         backgroundImage: bgImage.trim() || undefined,
         presets: allPresetsMap,
@@ -397,7 +428,7 @@ export default function App() {
     } finally {
       setExporting(false);
     }
-  }, [bgImage, expandInlineImageRefs, markdown, preset, ratio, showStatus]);
+  }, [bgImage, expandInlineImageRefs, firstSlidePreset, markdown, preset, ratio, showStatus]);
 
   const insertAtCursor = useCallback((text, start, end) => {
     setMarkdown((prev) => `${prev.slice(0, start)}${text}${prev.slice(end)}`);
@@ -544,6 +575,19 @@ export default function App() {
           >
             <Sparkles size={13} />
           </button>
+          <label className="cover-preset-wrap">
+            <span className="toolbar-label">Cover</span>
+            <select
+              value={firstSlidePreset}
+              onChange={(e) => setFirstSlidePreset(e.target.value)}
+              className="cover-preset-select"
+            >
+              <option value="">없음 (본문과 동일)</option>
+              {styleTabs.map((tab) => (
+                <option key={tab.value} value={tab.value}>{tab.label}</option>
+              ))}
+            </select>
+          </label>
         </div>
 
         <div className="topbar-right">
@@ -608,11 +652,23 @@ export default function App() {
               onChange={(event) => setPostTitle(event.target.value)}
               placeholder="제목을 입력하세요"
             />
-            <div className="editor-tools" aria-hidden="true">
-              <span>B</span>
-              <span>I</span>
-              <span>↗</span>
-              <span>◫</span>
+            <div className="editor-tools">
+              <button
+                type="button"
+                className={cn("editor-mode-btn", editorMode === "wysiwyg" && "is-active")}
+                onClick={() => setEditorMode("wysiwyg")}
+                title="WYSIWYG 에디터"
+              >
+                <Eye size={12} />
+              </button>
+              <button
+                type="button"
+                className={cn("editor-mode-btn", editorMode === "markdown" && "is-active")}
+                onClick={() => setEditorMode("markdown")}
+                title="마크다운 에디터"
+              >
+                <Code size={12} />
+              </button>
             </div>
           </div>
 
@@ -641,14 +697,22 @@ export default function App() {
             </button>
           </div>
 
-          <textarea
-            ref={markdownRef}
-            className="editor-textarea"
-            value={markdown}
-            onChange={(event) => setMarkdown(event.target.value)}
-            onPaste={handlePaste}
-            placeholder=""
-          />
+          {editorMode === "wysiwyg" ? (
+            <MilkdownEditor
+              value={markdown}
+              onChange={setMarkdown}
+              onImageUpload={handleImageUpload}
+            />
+          ) : (
+            <textarea
+              ref={markdownRef}
+              className="editor-textarea"
+              value={markdown}
+              onChange={(event) => setMarkdown(event.target.value)}
+              onPaste={handlePaste}
+              placeholder=""
+            />
+          )}
           <p className="editor-hint">Use "---" to automatically split content into multiple slides.</p>
           <p className={cn("status-line", status.isError && "is-error")}>{status.message}</p>
         </section>

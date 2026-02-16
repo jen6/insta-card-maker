@@ -16,6 +16,7 @@ program
   .option("-i, --input <path>", "Input markdown file path")
   .option("-o, --output <path>", "Output directory")
   .option("--preset <name>", "Preset name (reference, glow, glowless, paper, sports-hero)", "reference")
+  .option("--first-slide-preset <name>", "Preset name for the first slide (cover page)")
   .option("--list-presets", "List available presets")
   .option("--ratio <w:h>", "Aspect ratio (e.g. 4:5, 1:1, 3:4, 4:3)", "4:5")
   .option("--width <number>", "Image width (if omitted, auto from ratio)")
@@ -180,7 +181,7 @@ function emphasisCss(emphasisStyle) {
 
 function splitByExplicitDivider(markdown) {
   return markdown
-    .split(/\n\s*---+\s*\n/g)
+    .split(/\n\s*(?:---+|\*\*\*+)\s*\n/g)
     .map((chunk) => chunk.trim())
     .filter(Boolean);
 }
@@ -672,8 +673,8 @@ function renderCardHtml({
   const scale = textScaleByLength(card.plainLength);
   const titleSize = Math.round(
     base *
-      (isPortrait ? theme.titleScalePortrait : theme.titleScaleLandscape) *
-      Math.max(scale, theme.titleScaleFloor)
+    (isPortrait ? theme.titleScalePortrait : theme.titleScaleLandscape) *
+    Math.max(scale, theme.titleScaleFloor)
   );
   const bodySize = Math.round(base * (isPortrait ? theme.bodyScalePortrait : theme.bodyScaleLandscape) * scale);
   const smallSize = Math.round(bodySize * theme.smallTextScale);
@@ -992,6 +993,15 @@ async function run() {
   const backgroundImage = await resolveBackgroundImage(options.bgImage);
   const theme = mergeTheme(preset, options, backgroundImage);
 
+  let firstSlideTheme = null;
+  if (options.firstSlidePreset) {
+    const firstPreset = PRESETS[options.firstSlidePreset];
+    if (!firstPreset) {
+      throw new Error(`Unknown first-slide preset: ${options.firstSlidePreset}. Available: ${Object.keys(PRESETS).join(", ")}`);
+    }
+    firstSlideTheme = mergeTheme(firstPreset, options, backgroundImage);
+  }
+
   if (!options.input) {
     throw new Error("input markdown file is required. Use -i <path>");
   }
@@ -1038,12 +1048,14 @@ async function run() {
   await page.setViewport({ width, height, deviceScaleFactor: 2 });
 
   for (let i = 0; i < cards.length; i += 1) {
+    const isFirstSlide = i === 0 && firstSlideTheme !== null;
+    const cardTheme = isFirstSlide ? firstSlideTheme : theme;
     const html = renderCardHtml({
       card: cards[i],
       width,
       height,
-      fontFamily: theme.fontFamily,
-      theme,
+      fontFamily: cardTheme.fontFamily,
+      theme: cardTheme,
     });
 
     await page.setContent(html, { waitUntil: "domcontentloaded" });
