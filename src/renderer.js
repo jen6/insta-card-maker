@@ -86,7 +86,8 @@ function autoSplitMarkdown(markdown, maxChars) {
 
 function extractCardDirectives(cardMarkdown) {
     const directives = {};
-    const cleaned = cardMarkdown.replace(/<!--\s*(bg-image)\s*:\s*(.+?)\s*-->/gi, (_m, key, value) => {
+    // Only match <!-- bg-image: ... --> at the start of a line (not inline text)
+    const cleaned = cardMarkdown.replace(/^<!--\s*(bg-image)\s*:\s*(.+?)\s*-->/gim, (_m, key, value) => {
         directives[key.toLowerCase()] = value.trim();
         return "";
     });

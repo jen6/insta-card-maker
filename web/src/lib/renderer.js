@@ -75,8 +75,8 @@ function autoSplitMarkdown(markdown, maxChars) {
 
 function extractCardDirectives(cardMarkdown) {
     const directives = {};
-    // Handle both normal and escaped (Milkdown) HTML comments: <!-- ... --> or \<!-- ... -->
-    const cleaned = cardMarkdown.replace(/\\?<!--\s*(bg-image)\s*:\s*(.+?)\s*-->/gi, (_m, key, value) => {
+    // Only match <!-- bg-image: ... --> at the start of a line (not escaped \<!-- which is literal text)
+    const cleaned = cardMarkdown.replace(/^<!--\s*(bg-image)\s*:\s*(.+?)\s*-->/gim, (_m, key, value) => {
         directives[key.toLowerCase()] = value.trim();
         return "";
     });
