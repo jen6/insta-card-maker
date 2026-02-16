@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 import { Crepe, CrepeFeature } from "@milkdown/crepe";
 import { replaceAll } from "@milkdown/kit/utils";
 // Crepe theme CSS — common (feature styles) + crepe (color variables)
@@ -12,13 +12,20 @@ import "@milkdown/crepe/theme/crepe.css";
  *  - value: markdown string (source of truth lives in parent)
  *  - onChange: (markdown: string) => void
  *  - onImageUpload: (file: File) => Promise<string>  — returns markdown image ref
+ *
+ * Ref:
+ *  - getMarkdown(): returns the current editor markdown immediately
+ *  - flushChange(): cancels debounce timer and fires onChange with current content
  */
-export default function MilkdownEditor({ value, onChange, onImageUpload }) {
+const MilkdownEditor = forwardRef(function MilkdownEditor({ value, onChange, onImageUpload }, ref) {
     const containerRef = useRef(null);
     const crepeRef = useRef(null);
     const onChangeRef = useRef(onChange);
     const suppressNextChange = useRef(false);
     const latestValueRef = useRef(value);
+    const debounceTimerRef = useRef(null);
+    // Track whether the latest value came from internal editing (vs external load)
+    const internalEditRef = useRef(false);
 
     // Keep callback ref fresh without re-creating the editor
     useEffect(() => {
@@ -28,6 +35,29 @@ export default function MilkdownEditor({ value, onChange, onImageUpload }) {
     useEffect(() => {
         latestValueRef.current = value;
     }, [value]);
+
+    // Expose imperative methods so parent can get latest content immediately
+    useImperativeHandle(ref, () => ({
+        getMarkdown: () => {
+            return crepeRef.current ? crepeRef.current.getMarkdown() : latestValueRef.current || "";
+        },
+        flushChange: () => {
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+                debounceTimerRef.current = null;
+            }
+            if (crepeRef.current) {
+                onChangeRef.current?.(crepeRef.current.getMarkdown());
+            }
+        },
+    }), []);
+
+    // Cleanup debounce timer on unmount
+    useEffect(() => {
+        return () => {
+            if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        };
+    }, []);
 
     // Create the Crepe editor once
     useEffect(() => {
@@ -78,7 +108,13 @@ export default function MilkdownEditor({ value, onChange, onImageUpload }) {
                     suppressNextChange.current = false;
                     return;
                 }
-                onChangeRef.current?.(markdown);
+                // Mark that this change came from user editing
+                internalEditRef.current = true;
+                // Debounce: only notify parent after 5 seconds of inactivity
+                if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+                debounceTimerRef.current = setTimeout(() => {
+                    onChangeRef.current?.(markdown);
+                }, 5000);
             });
         });
 
@@ -87,6 +123,7 @@ export default function MilkdownEditor({ value, onChange, onImageUpload }) {
         });
 
         return () => {
+            if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
             crepe.destroy();
             crepeRef.current = null;
         };
@@ -98,9 +135,14 @@ export default function MilkdownEditor({ value, onChange, onImageUpload }) {
     useEffect(() => {
         const crepe = crepeRef.current;
         if (!crepe) return;
-        // Only push if the value was changed externally (not from our own onChange)
+        // Only push if the value was changed externally (not from our own debounced onChange)
         if (value !== prevValueRef.current) {
             prevValueRef.current = value;
+            // If this change originated from our own debounced callback, skip replaceAll
+            if (internalEditRef.current) {
+                internalEditRef.current = false;
+                return;
+            }
             const currentMd = crepe.getMarkdown();
             // Normalize for comparison: trim trailing newlines
             if (currentMd.replace(/\n+$/, "") !== value.replace(/\n+$/, "")) {
@@ -116,4 +158,6 @@ export default function MilkdownEditor({ value, onChange, onImageUpload }) {
             className="milkdown-editor-root"
         />
     );
-}
+});
+
+export default MilkdownEditor;

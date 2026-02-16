@@ -166,6 +166,7 @@ export default function App() {
   const renderRequestRef = useRef(0);
   const activePreviewUrlsRef = useRef([]);
   const markdownRef = useRef(null);
+  const milkdownRef = useRef(null);
 
   const previewScale = sidebarCollapsed ? PREVIEW_SCALE_COLLAPSED : PREVIEW_SCALE_DEFAULT;
   const scaledW = useMemo(() => Math.round(previewState.width * previewScale), [previewScale, previewState.width]);
@@ -327,9 +328,15 @@ export default function App() {
   }, [bgImage, clearPreviewUrls, expandInlineImageRefs, firstSlidePreset, markdown, preset, ratio]);
 
   const savePost = useCallback(() => {
+    // Flush any pending debounced changes from the WYSIWYG editor
+    if (milkdownRef.current?.flushChange) {
+      milkdownRef.current.flushChange();
+    }
+    // Get the latest markdown directly from the editor if available
+    const latestMarkdown = milkdownRef.current?.getMarkdown?.() ?? markdown;
     const payload = {
       title: postTitle.trim(),
-      markdown: expandInlineImageRefs(markdown),
+      markdown: expandInlineImageRefs(latestMarkdown),
       preset,
       firstSlidePreset,
       ratio,
@@ -400,7 +407,12 @@ export default function App() {
   }, [makeInlineImageRef]);
 
   const exportCards = useCallback(async () => {
-    const md = expandInlineImageRefs(markdown).trim();
+    // Flush any pending debounced changes from the WYSIWYG editor
+    if (milkdownRef.current?.flushChange) {
+      milkdownRef.current.flushChange();
+    }
+    const latestMarkdown = milkdownRef.current?.getMarkdown?.() ?? markdown;
+    const md = expandInlineImageRefs(latestMarkdown).trim();
     if (!md) {
       showStatus("내보낼 내용이 없습니다.", true);
       return;
@@ -699,6 +711,7 @@ export default function App() {
 
           {editorMode === "wysiwyg" ? (
             <MilkdownEditor
+              ref={milkdownRef}
               value={markdown}
               onChange={setMarkdown}
               onImageUpload={handleImageUpload}
