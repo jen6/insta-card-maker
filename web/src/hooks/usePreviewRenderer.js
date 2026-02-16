@@ -10,19 +10,11 @@ export default function usePreviewRenderer() {
     });
     const [previewFrames, setPreviewFrames] = useState([]);
     const renderRequestRef = useRef(0);
-    const activeUrlsRef = useRef([]);
-
-    const clearUrls = useCallback((urls) => {
-        const target = urls || activeUrlsRef.current;
-        target.forEach((url) => URL.revokeObjectURL(url));
-        if (!urls) activeUrlsRef.current = [];
-    }, []);
 
     const renderPreview = useCallback(
         ({ markdown, expandRefs, preset, firstSlidePreset, ratio, bgImage, presetsMap }) => {
             const currentMarkdown = markdown.trim();
             if (!currentMarkdown) {
-                clearUrls();
                 setPreviewFrames([]);
                 setPreviewState({ loading: false, error: "", width: 1080, height: 1350 });
                 return;
@@ -45,31 +37,32 @@ export default function usePreviewRenderer() {
 
                 const cards = Array.isArray(data.cards) ? data.cards : [];
                 if (!cards.length) {
-                    clearUrls();
                     setPreviewFrames([]);
                     setPreviewState({ loading: false, error: "", width: data.width || 1080, height: data.height || 1350 });
                     return;
                 }
 
-                const frames = cards.map((html, index) => {
-                    const blob = new Blob([html], { type: "text/html" });
-                    const url = URL.createObjectURL(blob);
-                    return { key: `${requestId}-${index}`, index: index + 1, total: cards.length, url };
-                });
+                // Use stable keys based on card index so iframes are reused across renders
+                const frames = cards.map((html, index) => ({
+                    key: `card-${index}`,
+                    index: index + 1,
+                    total: cards.length,
+                    html,
+                }));
 
-                clearUrls();
-                activeUrlsRef.current = frames.map((f) => f.url);
                 setPreviewFrames(frames);
                 setPreviewState({ loading: false, error: "", width: data.width || 1080, height: data.height || 1350 });
             } catch (err) {
                 if (renderRequestRef.current !== requestId) return;
-                clearUrls();
                 setPreviewFrames([]);
                 setPreviewState({ loading: false, error: err.message, width: 1080, height: 1350 });
             }
         },
-        [clearUrls]
+        []
     );
+
+    // clearUrls kept as no-op for backward compat (no more blob URLs to revoke)
+    const clearUrls = useCallback(() => { }, []);
 
     return { previewState, previewFrames, renderPreview, clearUrls };
 }

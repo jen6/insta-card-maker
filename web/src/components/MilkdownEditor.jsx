@@ -110,11 +110,11 @@ const MilkdownEditor = forwardRef(function MilkdownEditor({ value, onChange, onI
                 }
                 // Mark that this change came from user editing
                 internalEditRef.current = true;
-                // Debounce: only notify parent after 5 seconds of inactivity
+                // Debounce: only notify parent after brief pause in typing
                 if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
                 debounceTimerRef.current = setTimeout(() => {
                     onChangeRef.current?.(markdown);
-                }, 5000);
+                }, 150);
             });
         });
 

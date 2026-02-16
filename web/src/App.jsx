@@ -5,6 +5,7 @@ import { renderMarkdownToCards } from "@/lib/renderer";
 import { exportCardsToPng } from "@/lib/exporter";
 import PresetManagerPanel from "./components/PresetManagerPanel";
 import MilkdownEditor from "./components/MilkdownEditor";
+import CardPreviewFrame from "./components/CardPreviewFrame";
 import useStatus from "./hooks/useStatus";
 import useInlineImages from "./hooks/useInlineImages";
 import usePreviewRenderer from "./hooks/usePreviewRenderer";
@@ -174,7 +175,7 @@ export default function App() {
           bgImage: pm.bgImage, presetsMap: pm.allPresetsMap,
         });
       } catch (err) { showStatus(err.message, true); }
-    }, 400);
+    }, 200);
     return () => clearTimeout(timer);
   }, [expandRefs, pm.markdown, pm.preset, pm.firstSlidePreset, pm.ratio, pm.bgImage, pm.allPresetsMap, renderPreview, showStatus]);
 
@@ -329,8 +330,8 @@ export default function App() {
               {!previewState.loading && !previewState.error && !previewFrames.length && <div className="preview-message">카드가 생성되지 않았습니다.</div>}
               {!previewState.loading && !previewState.error && previewFrames.map((frame) => (
                 <article key={frame.key} className="preview-card-shell" style={{ width: `${scaledW}px`, height: `${scaledH}px` }}>
-                  <iframe title={`card-${frame.index}`} src={frame.url} width={previewState.width} height={previewState.height}
-                    style={{ border: "none", display: "block", transform: `scale(${previewScale})`, transformOrigin: "top left" }} />
+                  <CardPreviewFrame title={`card-${frame.index}`} html={frame.html}
+                    width={previewState.width} height={previewState.height} scale={previewScale} />
                   <span className="preview-index">{String(frame.index).padStart(2, "0")} / {String(frame.total).padStart(2, "0")}</span>
                 </article>
               ))}
